@@ -1,0 +1,11 @@
+# git ignore file
+build/
+node_modules/
+*.suo
+*.sdf
+*.vcxproj.user
+imgui_log.txt
+imgui.ini
+UpgradeLog.htm
+code/game3.opensdf
+*.ipch

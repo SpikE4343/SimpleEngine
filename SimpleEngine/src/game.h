@@ -8,7 +8,7 @@
 #define PHYZAKS_GAME_H_INCLUDED
 
 #include "util.h"
-#include "game_block.h"
+#include "block.h"
 
 #include "math_game.h"
 

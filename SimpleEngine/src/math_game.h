@@ -10,41 +10,41 @@
 
 struct Vector4
 {
-    float x;
-	float y;
-	float z;
-	float w;
+  float x;
+  float y;
+  float z;
+  float w;
 
-	static Vector4 Zero;
-	static Vector4 Up;
-	static Vector4 Right;
-	static Vector4 Forward;
+  static Vector4 Zero;
+  static Vector4 Up;
+  static Vector4 Right;
+  static Vector4 Forward;
 };
 
 struct Frustum
 {
-	Vector4 front;
-	Vector4 back;
-	Vector4 top;
-	Vector4 bottom;
-	Vector4 left;
-	Vector4 right;
+  Vector4 front;
+  Vector4 back;
+  Vector4 top;
+  Vector4 bottom;
+  Vector4 left;
+  Vector4 right;
 };
 
 inline void vector4_set( Vector4* pDest, float x, float y, float z, float w )
 {
-	pDest->x = x;
-	pDest->y = y;
-	pDest->z = z;
-	pDest->w = w;
+  pDest->x = x;
+  pDest->y = y;
+  pDest->z = z;
+  pDest->w = w;
 }
 
 typedef Vector4 mat44[4];
 struct Matrix
 {
-    mat44   m;
+  mat44   m;
 
-    static Matrix IDENTITY;
+  static Matrix IDENTITY;
 };
 
 //
@@ -96,7 +96,7 @@ void sub( Vector4* pResult, const Vector4* pVector, const Vector4* pRhs );
 
 float dot( const Vector4* pVector, const Vector4* pRhs );
 float dot( const Vector4* pVector, const Vector4* pRhs, float scalar );
-void cross(Vector4* result, const Vector4* v1, const Vector4* v2 );
+void math_cross(Vector4* result, const Vector4* v1, const Vector4* v2 );
 
 float vector4_length( const Vector4* pVector );
 void vector4_normalize( Vector4* v );
@@ -124,9 +124,12 @@ void scale(Matrix *result, float sx, float sy, float sz);
 void translate(Matrix *result, float tx, float ty, float tz);
 void translate(Matrix *result, const Vector4& vPos);
 
+float math_min ( float a, float b );
+float math_max ( float a, float b );
+
 static Matrix& matrix_identity()
 { 
-	return Matrix::IDENTITY; 
+  return Matrix::IDENTITY; 
 }
 
 #endif

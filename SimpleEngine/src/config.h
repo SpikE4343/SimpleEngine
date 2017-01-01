@@ -9,6 +9,7 @@
 #define USE_DX10_RENDERER 0
 #define USE_GLES_RENDERER 1
 #define USE_CPU_RENDERER 0
+#define USE_NULL_PHYSICS 1
 
 // Android
 #elif defined( __ANDROID__ )

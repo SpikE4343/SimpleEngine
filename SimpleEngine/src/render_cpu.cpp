@@ -5,9 +5,7 @@
 
 //#if USE_ARDUINO_RENDERER
 
-#include <TVout.h>
-#include <video_gen.h>
-#include <font6x8.h>
+void render_draw_mesh(const Matrix& modelViewProjection, int mesh );
 
 struct ShaderBlock
 {
@@ -32,17 +30,19 @@ struct MeshDataBlock
 {
   int iTail;
 
-  MEMBER( uint, uVertexBuffer);
-  MEMBER( uint, uNumVerts );
+  MEMBER( Vector4*, uVertexBuffer);
+  MEMBER( uint16, uNumVerts );
 
   //MEMBER( uint, uVertexNormalBuffer);
   //MEMBER( uint, uNumVertNormals );
 
-  MEMBER( uint, uIndexBuffer);
-  MEMBER( uint, uNumIndices );
+  MEMBER( uint16*, uIndexBuffer);
+  MEMBER( uint16, uNumIndices );
 
-  MEMBER( uint, uTexCoordBuffer);
-  MEMBER( uint, uNumTexCoords );
+  MEMBER( uint16*, uTexCoordBuffer);
+  MEMBER( uint16, uNumTexCoords );
+
+  MEMBER( int, iAssetId );
 };
 
 struct TextureBlock
@@ -53,30 +53,42 @@ struct TextureBlock
   MEMBER( uint, uHeight);
 };
 
+struct Color 
+{
+  uint8 r, g, b;
+};
 
-int iWidth;
-int iHeight;
-int iVisibleObjects;
-int iFrameCount;
+struct CPURenderer : RendererData
+{
+  int iWidth;
+  int iHeight;
+  int iVisibleObjects;
+  int iFrameCount;
 
-Matrix viewMatrix;
-Matrix viewDebugMatrix;
-Matrix projMatrix;
+  Matrix viewMatrix;
+  Matrix viewDebugMatrix;
+  Matrix projMatrix;
 
-float fFarPlane;
-float fNearPlane;
-float fFOV;
-float fScreenRatio;
+  float fFarPlane;
+  float fNearPlane;
+  float fFOV;
+  float fScreenRatio;
 
-Frustum viewFrustum;
+  Frustum viewFrustum;
 
-Vector4 vSunPos;
-Vector4 vSunColor;
+  Vector4 vSunPos;
+  Vector4 vSunColor;
 
-RenderObjectBlock aRenderBlock;
-ShaderBlock aShaderBlock;
-MeshDataBlock aMeshBlock;
-TextureBlock aTextureBlock;
+  RenderObjectBlock aRenderBlock;
+  ShaderBlock aShaderBlock;
+  MeshDataBlock aMeshBlock;
+  TextureBlock aTextureBlock;
+
+  Color aFrameBuffer[];
+
+};
+
+CPURenderer s_cpu_renderer;
 
 // Renderer
 int RenderObjectBlockSize( RenderObjectBlock* pBlock )
@@ -107,16 +119,16 @@ int RenderObjectBlockRemove( RenderObjectBlock* pBlock, int index )
 int render_create_renderobject()
 {
   // to many objects in the block
-  if( aRenderBlock.iTail - 1 >= OBJECT_BLOCK_SIZE )
+  if( s_renderer.aRenderBlock.iTail - 1 >= OBJECT_BLOCK_SIZE )
     return -1;
 
-  int index = aRenderBlock.iTail++;
+  int index = s_renderer.aRenderBlock.iTail++;
 
-  aRenderBlock.uFlags[index] = 1;
-  aRenderBlock.uVisible[index] = 0;
-  aRenderBlock.fRadius[index] = 1.0f;
+  s_renderer.aRenderBlock.uFlags[index] = 1;
+  s_renderer.aRenderBlock.uVisible[index] = 0;
+  s_renderer.aRenderBlock.fRadius[index] = 1.0f;
 
-  aRenderBlock.aWorldMatrix[index] = Matrix::IDENTITY;
+  s_renderer.aRenderBlock.aWorldMatrix[index] = Matrix::IDENTITY;
 
   return index;
 }
@@ -124,10 +136,10 @@ int render_create_renderobject()
 int render_clone_renderobject(int existing, Vector4 pos)
 {
   // to many objects in the block
-  if( aRenderBlock.iTail - 1 >= OBJECT_BLOCK_SIZE )
+  if( s_renderer.aRenderBlock.iTail - 1 >= OBJECT_BLOCK_SIZE )
     return -1;
 
-  int index = aRenderBlock.iTail++;
+  int index = s_renderer.aRenderBlock.iTail++;
 
   RENDER_OBJ( index, uFlags )   = 1;
   RENDER_OBJ( index, uVisible ) = 0;
@@ -142,20 +154,20 @@ int render_clone_renderobject(int existing, Vector4 pos)
   return index;
 }
 
-//RendererData& render_data()
-//{
-//  return s_renderer;
-//}
+RendererData& render_data()
+{
+  return s_cpu_renderer;
+}
 
 // ======================================
 int render_create_shader()
 {
   // to many objects in the block
-  if( aShaderBlock.iTail < 0 || 
-    aShaderBlock.iTail - 1 >= OBJECT_BLOCK_SIZE )
+  if( s_cpu_renderer.aShaderBlock.iTail < 0 || 
+    s_cpu_renderer.aShaderBlock.iTail - 1 >= OBJECT_BLOCK_SIZE )
     return -1;
 
-  int index = aShaderBlock.iTail++;
+  int index = s_cpu_renderer.aShaderBlock.iTail++;
   return index;
 }
 
@@ -183,7 +195,7 @@ int render_init_font()
 
 Matrix* render_view_matrix()
 {
-  return &viewMatrix;
+  return &s_renderer.viewMatrix;
 }
 
 int render_build_frustum()
@@ -267,26 +279,26 @@ int render_build_frustum()
   viewFrustum.back.w = viewProjection._44 - viewProjection._43;
 #endif  
 
-  multiply( &viewProjection, &viewMatrix, &projMatrix);
+  multiply( &viewProjection, &s_renderer.viewMatrix, &s_renderer.projMatrix);
 
-  add( &viewFrustum.left, &viewProjection.m[3], &viewProjection.m[0] );
-  sub( &viewFrustum.right, &viewProjection.m[3], &viewProjection.m[0] );
+  add( &s_renderer.viewFrustum.left, &viewProjection.m[3], &viewProjection.m[0] );
+  sub( &s_renderer.viewFrustum.right, &viewProjection.m[3], &viewProjection.m[0] );
 
-  sub( &viewFrustum.top, &viewProjection.m[3], &viewProjection.m[1] );
-  add( &viewFrustum.bottom, &viewProjection.m[3], &viewProjection.m[1] );
+  sub( &s_renderer.viewFrustum.top, &viewProjection.m[3], &viewProjection.m[1] );
+  add( &s_renderer.viewFrustum.bottom, &viewProjection.m[3], &viewProjection.m[1] );
 
-  viewFrustum.front = viewProjection.m[2];
+  s_renderer.viewFrustum.front = viewProjection.m[2];
 
-  sub( &viewFrustum.back, &viewProjection.m[3], &viewProjection.m[2] );
+  sub( &s_renderer.viewFrustum.back, &viewProjection.m[3], &viewProjection.m[2] );
 
-  plane_normalize( &viewFrustum.top );
-  plane_normalize( &viewFrustum.bottom );
+  plane_normalize( &s_renderer.viewFrustum.top );
+  plane_normalize( &s_renderer.viewFrustum.bottom );
 
-  plane_normalize( &viewFrustum.left );
-  plane_normalize( &viewFrustum.right );
+  plane_normalize( &s_renderer.viewFrustum.left );
+  plane_normalize( &s_renderer.viewFrustum.right );
 
-  plane_normalize( &viewFrustum.front );
-  plane_normalize( &viewFrustum.back );
+  plane_normalize( &s_renderer.viewFrustum.front );
+  plane_normalize( &s_renderer.viewFrustum.back );
 
   return 1;
 }
@@ -300,38 +312,39 @@ int render_cull_scene()
   Vector4 pos;
   float fDot = 0.0f;
   int res = 0;
-  for( int i=0; i < aRenderBlock.iTail; ++i )
+
+  for( int i=0; i < s_renderer.aRenderBlock.iTail; ++i )
   {
-    float fRadius = aRenderBlock.fRadius[i];
+    float fRadius = s_renderer.aRenderBlock.fRadius[i];
 
     // 0x80000000
-    pos = aRenderBlock.aWorldMatrix[i].m[3];
+    pos = s_renderer.aRenderBlock.aWorldMatrix[i].m[3];
 
-    fDot = dot( &viewFrustum.front, &pos );
-    fDot += fRadius + viewFrustum.front.w;
+    fDot = dot( &s_renderer.viewFrustum.front, &pos );
+    fDot += fRadius + s_renderer.viewFrustum.front.w;
     res = FLOAT_GET_SIGN( fDot );
 
-    fDot = dot( &viewFrustum.back, &pos );
-    fDot += fRadius + viewFrustum.back.w;
+    fDot = dot( &s_renderer.viewFrustum.back, &pos );
+    fDot += fRadius + s_renderer.viewFrustum.back.w;
     res |= FLOAT_GET_SIGN( fDot );
 
-    fDot = dot( &viewFrustum.top, &pos );
-    fDot += fRadius + viewFrustum.top.w;
+    fDot = dot( &s_renderer.viewFrustum.top, &pos );
+    fDot += fRadius + s_renderer.viewFrustum.top.w;
     res |= FLOAT_GET_SIGN( fDot );
 
-    fDot = dot( &viewFrustum.bottom, &pos );
-    fDot += fRadius + viewFrustum.bottom.w;
+    fDot = dot( &s_renderer.viewFrustum.bottom, &pos );
+    fDot += fRadius + s_renderer.viewFrustum.bottom.w;
     res |= FLOAT_GET_SIGN( fDot );
 
-    fDot = dot( &viewFrustum.left, &pos );
-    fDot += fRadius + viewFrustum.left.w;
+    fDot = dot( &s_renderer.viewFrustum.left, &pos );
+    fDot += fRadius + s_renderer.viewFrustum.left.w;
     res |= FLOAT_GET_SIGN( fDot );
 
-    fDot = dot( &viewFrustum.right, &pos );
-    fDot += fRadius + viewFrustum.right.w;
+    fDot = dot( &s_renderer.viewFrustum.right, &pos );
+    fDot += fRadius + s_renderer.viewFrustum.right.w;
     res |= FLOAT_GET_SIGN( fDot );
 
-    aRenderBlock.uVisible[i] = res;
+    s_renderer.aRenderBlock.uVisible[i] = res;
   }
 
   //system_log( "cull ms=%f\n", (system_get_time_secs()-fStart) *1000.0f);
@@ -350,109 +363,35 @@ int render_draw()
 
 int render_draw_object(int iObj, uint& iCurrentShader, uint& iCurrentMesh)
 {
-  if( !aRenderBlock.uVisible[iObj] )
+  if( !s_renderer.aRenderBlock.uVisible[iObj] )
     return 0;
 
-  //  if( iCurrentMesh != aRenderBlock.uMesh[iObj])
-  //  {
-  //    PROFILE_BLOCK( obj_set_buffers );
-  //    iCurrentMesh = aRenderBlock.uMesh[iObj];
-  //
-  //    // set vertex buffer
-  //    glBindBuffer(GL_ARRAY_BUFFER, aMeshBlock.uVertexBuffer[iCurrentMesh]);
-  //    checkGlError("glBindBuffer");
-  //
-  //    glVertexAttribPointer ( 0, 3, GL_FLOAT, GL_FALSE, 0, 0 );
-  //    checkGlError("glVertexAttribPointer");
-  //
-  //    glEnableVertexAttribArray(0);
-  //    checkGlError("glEnableVertexAttribArray");
-  //
-  //    glBindBuffer(GL_ARRAY_BUFFER, aMeshBlock.uVertexNormalBuffer[iCurrentMesh]);
-  //    glVertexAttribPointer ( 1, 3, GL_FLOAT, GL_FALSE, 0, 0 );
-  //    glEnableVertexAttribArray(1);
-  //
-  //
-  //    // set texture coordinate buffer
-  //    glBindBuffer(GL_ARRAY_BUFFER, aMeshBlock.uTexCoordBuffer[iCurrentMesh]);
-  //    glVertexAttribPointer( 2, 2, GL_FLOAT, GL_FALSE, 0, 0 );
-  //    glEnableVertexAttribArray( 2 );
-  //
-  //   
-  //    // bind indices
-  //    glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, aMeshBlock.uIndexBuffer[iCurrentMesh]);
-  //    checkGlError("glBindBuffer");
-  //  }
-  //
-  //  uint iShaderIndex = aRenderBlock.uShader[iObj];
-  //  if( iCurrentShader != iShaderIndex )
-  //  {
-  //    iCurrentShader = iShaderIndex;
-  //
-  //    PROFILE_BLOCK( obj_set_shader_params );
-  //
-  //    //system_log( "draw program: %u", aShaderBlock.uProgram[iCurrentShader]);
-  //
-  //    uint program = aShaderBlock.uProgram[iCurrentShader];
-  //    glUseProgram ( program );
-  //    checkGlError("glUseProgram");
-  //  }
-  //
-  //  Matrix mvp = matrix_identity();
-  //  multiply( &mvp, &aRenderBlock.aWorldMatrix[iObj], &viewMatrix );
-  //
-  //  Matrix tempNormalMat = matrix_identity();
-  //  matrix_inverse_nonui(&tempNormalMat, &mvp );
-  //  transpose( &tempNormalMat );
-  //
-  //  multiply( &mvp, &projMatrix );
-  //
-  //
-  //
-  //
-  //  glUniformMatrix4fv( aShaderBlock.uWorldMatrixParam[iShaderIndex],     1, GL_FALSE, &aRenderBlock.aWorldMatrix[iObj].m[0].x);
-  //  glUniformMatrix4fv( aShaderBlock.uViewMatrixParam[iShaderIndex],      1, GL_FALSE, &viewMatrix.m[0].x);
-  //  //glUniformMatrix4fv( aShaderBlock.uProjMatrixParam[iShaderIndex],      1, GL_FALSE, &projMatrix.m[0].x);
-  //  glUniformMatrix4fv( aShaderBlock.uNormalMatrixParam[iShaderIndex],    1, GL_FALSE, &tempNormalMat.m[0].x);
-  //  glUniformMatrix4fv( aShaderBlock.uFinalTransformParam[iShaderIndex],  1, GL_FALSE, &mvp.m[0].x);
-  //  checkGlError("glUniformMatrix4fv");
-  //  //glUniformMatrix4fv( aShaderBlock.uFinalTransformParam[iShaderIndex],  1, GL_FALSE, &Matrix::IDENTITY.m[0].x);
-  //
-  //  glUniform4fv (aShaderBlock.uLightPosParam[iShaderIndex], 1, (GLfloat*)&vSunPos.x);
-  //  glUniform4fv (aShaderBlock.uLightColorParam[iShaderIndex], 1, (GLfloat*)&vSunColor.x);
-  //    
-  //
-  //  if( aShaderBlock.uTexture0[iShaderIndex] )
-  //  {
-  //    // Bind the texture
-  //    int texture = aShaderBlock.uTexture0[iShaderIndex];
-  //    glActiveTexture ( GL_TEXTURE0 );
-  //    glBindTexture ( GL_TEXTURE_2D, aTextureBlock.uTexture[texture] );
-  //        
-  //    // Set the sampler texture unit to 0
-  //    glUniform1i ( aShaderBlock.uTexture0Loc[iShaderIndex], 0 );
-  //  }
-  //
-  //  // draw it already
-  //  //system_log( "drawing triangles: %u", aMeshBlock.uNumIndices[iCurrentMesh]);
-  //  glDrawElements(GL_TRIANGLES, aMeshBlock.uNumIndices[iCurrentMesh], GL_UNSIGNED_SHORT, (void*)0);
-  //  checkGlError("glDrawElements");
-  //
-  //  //system_log( "drawing %d", iObj);
+  Matrix mvp = matrix_identity();
+  multiply( &mvp, &s_renderer.aRenderBlock.aWorldMatrix[iObj], &s_renderer.viewMatrix );
+
+  Matrix tempNormalMat = matrix_identity();
+  matrix_inverse_nonui(&tempNormalMat, &mvp );
+  transpose( &tempNormalMat );
+
+  multiply( &mvp, &s_renderer.projMatrix );
+
+  render_draw_mesh( mvp, iCurrentMesh );
+
+  //system_log( "drawing %d", iObj);
 
   return 1;
 }
 
-TVout tv;
+
 int render_initialize(int width, int height)
 {
-  iWidth = width;
-  iHeight = height;
+  s_renderer.iWidth = width;
+  s_renderer.iHeight = height;
 
 
-  fFarPlane = 20000.0f;
-  fNearPlane = 1.0f;
-  fFOV = 55.0f;
+  s_renderer.fFarPlane = 20000.0f;
+  s_renderer.fNearPlane = 1.0f;
+  s_renderer.fFOV = 55.0f;
 
   //vector4_set( &vSunPos, 0.0f, 100000.0f, 1000000.0f, 1.0f );
   //vector4_set( &vSunColor, 1.0f, 0.0f, 0.0f, 1.0f );
@@ -467,39 +406,43 @@ int render_initialize(int width, int height)
   //  aShaderBlock.iTail  = 0;
   //  aTextureBlock.iTail = 0;
 
-  fScreenRatio = iWidth / (float)iHeight;
+  s_renderer.fScreenRatio = s_renderer.iWidth / (float)s_renderer.iHeight;
 
+  matrix_create_perspective( 
+    &s_renderer.projMatrix, 
+    s_renderer.fFOV , 
+    s_renderer.fScreenRatio, 
+    s_renderer.fNearPlane, 
+    s_renderer.fFarPlane
+    );
 
-
-  matrix_create_perspective( &projMatrix, fFOV , fScreenRatio, fNearPlane, fFarPlane);
   render_build_frustum();
 
-
-  tv.begin(NTSC, iWidth, iHeight);
-  tv.select_font(font6x8);
-  tv.clear_screen();
   return 1;
 }
 
 int render_begin_frame()
 {
-  //Serial.println("begin_frame");
-
   // TODO: cache until fov changes
-  //  projMatrix = matrix_identity();
-  //  matrix_create_perspective( &projMatrix, fFOV, fScreenRatio, fNearPlane, fFarPlane);
-  //  render_build_frustum();
+  s_renderer.projMatrix = matrix_identity();
+  matrix_create_perspective( 
+    &s_renderer.projMatrix, 
+    s_renderer.fFOV, 
+    s_renderer.fScreenRatio, 
+    s_renderer.fNearPlane, 
+    s_renderer.fFarPlane
+    );
 
-  tv.delay_frame(1);
-  tv.clear_screen();
+  render_build_frustum();
+
+
 
   return 1;
 }
 
 int render_draw_text( const char* pText, int x, int y )
 {
-  tv.select_font(font6x8);
-  tv.print( x, y, pText );
+
   return 1;
 }
 
@@ -507,7 +450,7 @@ int render_end_frame()
 {
   PROFILE_FUNC();
 
-  ++iFrameCount;
+  ++s_renderer.iFrameCount;
   //eglSwapBuffers ( eglDisplay, eglSurface );
   //checkGlError("eglSwapBuffers");
   //tv.delay(1000);
@@ -517,4 +460,72 @@ int render_end_frame()
 int render_shutdown()
 {
   return 1;
+}
+
+void render_apply_vertex_shader(const Matrix& modelViewProjection, int index, Vector4* inVertex, Vector4* outVertex )
+{
+  multiply( outVertex, &modelViewProjection, *inVertex );
+}
+
+void render_draw_pixel( int x, int y, Color& color)
+{
+  s_cpu_renderer.aFrameBuffer[y*s_renderer.iWidth+x] = color;
+}
+
+void render_draw_triangle(const Matrix& modelViewProjection, int tri, uint16* indicies, Vector4* verts  )
+{
+  Vector4 v[3];
+
+  // transform verts
+  render_apply_vertex_shader( modelViewProjection, tri + 0, verts + indicies[ tri + 0 ], &v[0]);
+  render_apply_vertex_shader( modelViewProjection, tri + 1, verts + indicies[ tri + 1 ], &v[1]);
+  render_apply_vertex_shader( modelViewProjection, tri + 2, verts + indicies[ tri + 2 ], &v[2]);
+
+  // find triangle bounding box
+  int maxX = math_max(v[0].x, math_max(v[1].x, v[2].x));
+  int minX = math_min(v[0].x, math_min(v[1].x, v[2].x));
+  int maxY = math_max(v[0].y, math_max(v[1].y, v[2].y));
+  int minY = math_min(v[0].y, math_min(v[1].y, v[2].y));
+
+  Vector4 vs1, vs2, q, t1, t2;
+  vector4_set( &vs1, v[1].x - v[0].x, v[1].y - v[0].y, 0.0f, 0.0f);
+  vector4_set( &vs2, v[2].x - v[0].x, v[2].y - v[0].y, 0.0f, 0.0f);
+
+  Color c;
+  c.r = 255;
+  c.g = 0;
+  c.b = 0;
+
+  for (int x = minX; x <= maxX; x++)
+  {
+    for (int y = minY; y <= maxY; y++)
+    {
+      vector4_set( &q, x - v[0].x, y - v[0].y, 0.0f , 0.0f); 
+
+      math_cross( &t1, &q, &vs2 );
+      math_cross( &t2, &vs1, &vs2 );
+      float s = dot( &t1, &t2 );
+
+      math_cross( &t1, &vs1, &q );
+      float t = dot( &t1, &t2 );
+
+      if ( (s >= 0) && (t >= 0) && (s + t <= 1))
+        render_draw_pixel(x, y, c);
+    }
+  }
+}
+
+void render_draw_mesh(const Matrix& modelViewProjection, int mesh )
+{
+  uint16* meshIndicies = s_cpu_renderer.aMeshBlock.uIndexBuffer[mesh];
+  int  indexCount = s_cpu_renderer.aMeshBlock.uNumIndices[mesh];
+
+  Vector4* meshVerts = s_cpu_renderer.aMeshBlock.uVertexBuffer[mesh];
+  int  vertCount = s_cpu_renderer.aMeshBlock.uNumVerts[mesh];
+  int triCount = indexCount / 3;
+
+  for( int t=0; t < triCount; ++t)
+  {
+    render_draw_triangle( modelViewProjection, t, meshIndicies, meshVerts );
+  }
 }

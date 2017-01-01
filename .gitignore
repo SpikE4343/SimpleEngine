@@ -8,4 +8,5 @@ imgui_log.txt
 imgui.ini
 UpgradeLog.htm
 code/game3.opensdf
+Debug/
 *.ipch

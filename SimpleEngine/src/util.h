@@ -25,6 +25,8 @@
 #ifndef NULL
 #define NULL	0
 #endif
+typedef unsigned char uint8;
+typedef unsigned short uint16;
 typedef unsigned int uint;
 typedef unsigned int uint32;
 typedef          int int32;
@@ -37,4 +39,15 @@ typedef unsigned __int64 u64;
 typedef long long i64;
 typedef unsigned long long u64;
 #endif
+
+
+#if SYSTEM_ANDROID
+#define PACKED( s ) s __attribute__((__packed__))
+#elif _WIN32
+#define PACKED( s ) __pragma( pack(push, 1) ) s __pragma( pack(pop) )
+#endif
+
+
+
+
 #endif

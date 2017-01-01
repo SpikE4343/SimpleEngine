@@ -81,26 +81,22 @@
   <ItemGroup>
     <ClInclude Include="src\block.h" />
     <ClInclude Include="src\config.h" />
-    <ClInclude Include="src\game.h" />
-    <ClInclude Include="src\game_block.h" />
     <ClInclude Include="src\math_game.h" />
+    <ClInclude Include="src\physics.h" />
     <ClInclude Include="src\render.h" />
-    <ClInclude Include="src\render_mesh.h" />
     <ClInclude Include="src\stdafx.h" />
     <ClInclude Include="src\system.h" />
     <ClInclude Include="src\targetver.h" />
     <ClInclude Include="src\util.h" />
   </ItemGroup>
   <ItemGroup>
+    <ClCompile Include="src\game_common.cpp" />
     <ClCompile Include="src\game.cpp" />
     <ClCompile Include="src\main.cpp" />
     <ClCompile Include="src\math_game.cpp" />
+    <ClCompile Include="src\physics_bullet.cpp" />
+    <ClCompile Include="src\physics_null.cpp" />
     <ClCompile Include="src\render_cpu.cpp" />
-    <ClCompile Include="src\render_common.cpp" />
-    <ClCompile Include="src\render_mesh.cpp" />
-    <ClCompile Include="src\render_object.cpp" />
-    <ClCompile Include="src\render_shader.cpp" />
-    <ClCompile Include="src\render_texture.cpp" />
     <ClCompile Include="src\system_android.cpp" />
     <ClCompile Include="src\system_win32.cpp" />
     <ClCompile Include="src\util.cpp" />

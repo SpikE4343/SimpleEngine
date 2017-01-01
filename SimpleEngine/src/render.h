@@ -7,7 +7,7 @@
 #include "block.h"
 
 #define MAX_BUFFER_SIZE 4
-#define RENDER_OBJ( id, member ) aRenderBlock.member[id]
+#define RENDER_OBJ( id, member ) s_renderer.aRenderBlock.member[id]
 
 struct Shader
 {
@@ -17,63 +17,64 @@ struct Shader
 
 enum RenderObjectFlags
 {
-	RV_EMPTY = 0,
-	RV_ACTIVE = 1,
-	RV_VISIBLE = 2
+  RV_EMPTY = 0,
+  RV_ACTIVE = 1,
+  RV_VISIBLE = 2
 };
 
 enum ModelLoadSection
 {
-	LS_HEADER,
-	LS_VERTICES,
-	LS_INDICES,
-	LS_UVS,
-	LS_VERTEX_NORMALS
+  LS_HEADER,
+  LS_VERTICES,
+  LS_INDICES,
+  LS_UVS,
+  LS_VERTEX_NORMALS
 };
 
 struct RenderObjectBlock
 {
-	int iTail;
+  int iTail;
 
-	MEMBER( int, uFlags );
-	MEMBER( int, uVisible );
-	MEMBER( float, fRadius );
-	MEMBER( int, uShader );
-	MEMBER( int, uMesh );
-	MEMBER( Matrix, aWorldMatrix );
+  MEMBER( int, uFlags );
+  MEMBER( int, uVisible );
+  MEMBER( float, fRadius );
+  MEMBER( int, uShader );
+  MEMBER( int, uMesh );
+  MEMBER( Matrix, aWorldMatrix );
+  MEMBER( int, iAssetId );
 };
 
 struct Stats
 {
-	int iVisibleObjects;
-	float fFrameTime;
+  int iVisibleObjects;
+  float fFrameTime;
 };
 
 class RendererData
 {
 public:
-	int iWidth;
-	int iHeight;
-	int iVisibleObjects;
+  int iWidth;
+  int iHeight;
+  int iVisibleObjects;
   int iFrameCount;
 
-	Matrix viewMatrix;
-	Matrix viewDebugMatrix;
-	Matrix projMatrix;
+  Matrix viewMatrix;
+  Matrix viewDebugMatrix;
+  Matrix projMatrix;
 
-	float fFarPlane;
-	float fNearPlane;
-	float fFOV;
-	float fScreenRatio;
+  float fFarPlane;
+  float fNearPlane;
+  float fFOV;
+  float fScreenRatio;
 
-	Frustum viewFrustum;
+  Frustum viewFrustum;
 
-	Vector4 vSunPos;
-	Vector4 vSunColor;
+  Vector4 vSunPos;
+  Vector4 vSunColor;
 
-	RenderObjectBlock aRenderBlock;
+  RenderObjectBlock aRenderBlock;
 
-	//char pTempBuffer[MAX_BUFFER_SIZE];
+  //char pTempBuffer[MAX_BUFFER_SIZE];
 };
 
 int render_initialize(int iWidth, int iHeight);
@@ -87,7 +88,8 @@ int render_draw_text( const char* pText, int x, int y );
 
 int render_clone_renderobject( int existing, Vector4 pos );
 //int render_load_game_model( const char* pFileName );
-//RendererData& render_data();
+RendererData& render_data();
+#define s_renderer render_data()
 
 //unsigned int render_load_render_shader ( const char *fileName );
 
